@@ -1,0 +1,7 @@
+pickle-mixin
+matplotlib
+streamlit
+pandas
+textwrap3
+azure-storage-blob
+tqdm
