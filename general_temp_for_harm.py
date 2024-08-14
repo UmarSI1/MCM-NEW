@@ -19,6 +19,7 @@ import matplotlib.ticker as mtick
 # List_of_companies = list(data_ACC.keys())
 # harm_dic = data_ACC[List_of_companies[0]]
 # List_of_harms = list(harm_dic.keys())
+#a
 # content_dic = harm_dic[List_of_harms[0]]
 # List_of_content_type = list(content_dic.keys())
 # action_dic = content_dic[List_of_content_type[0]]
@@ -1453,8 +1454,11 @@ def plot_harm_content_type_normalized2(data, harm):
         }
 
     # Rename the categories in the DataFrame
-    df_harm_content_type['Harm'] = df_harm_content_type['Harm'].map(category_descriptions)
-    df_harm_content_type['Content Type'] = df_harm_content_type['Content Type'].map(content_type_descriptions)
+    df_harm_content_type['Harm'] = df_harm_content_type['Harm'].map(category_descriptions).fillna('Harm')
+    df_harm_content_type['Content Type'] = df_harm_content_type['Content Type'].map(content_type_descriptions).fillna('Content Type')
+    
+    df_harm_content_type = df_harm_content_type.groupby(['Harm', 'Content Type'], as_index=False).sum()
+
 
     # Pivot the DataFrame for the chart
     pivot_df_chart = df_harm_content_type.pivot(index='Harm', columns='Content Type', values='N# Actions').fillna(0).reset_index()
@@ -1772,9 +1776,10 @@ def plot_content_type_automation_status2(data, harm):
     }
 
     # Rename the content types and automation statuses in the DataFrame
-    df_content_type_automation_status['Content Type'] = df_content_type_automation_status['Content Type'].map(content_type_descriptions)
-    df_content_type_automation_status['Automation Status'] = df_content_type_automation_status['Automation Status'].map(automated_decision_cleaned)
-
+    df_content_type_automation_status['Content Type'] = df_content_type_automation_status['Content Type'].map(content_type_descriptions).fillna('Content Type')
+    df_content_type_automation_status['Automation Status'] = df_content_type_automation_status['Automation Status'].map(automated_decision_cleaned).fillna('Automation Status')
+    
+    df_content_type_automation_status = df_content_type_automation_status.groupby(['Content Type', 'Automation Status'], as_index=False).sum()
     # Pivot the DataFrame for the table
     pivot_df_table = df_content_type_automation_status.pivot(index='Content Type', columns='Automation Status', values='N# Actions').fillna(0).reset_index()
 
@@ -1841,8 +1846,12 @@ def plot_content_type_automation_status2_normalized(data, harm):
     }
 
     # Rename the content types and automation statuses in the DataFrame
-    df_content_type_automation_status['Content Type'] = df_content_type_automation_status['Content Type'].map(content_type_descriptions)
-    df_content_type_automation_status['Automation Status'] = df_content_type_automation_status['Automation Status'].map(automated_decision_cleaned)
+
+    df_content_type_automation_status['Content Type'] = df_content_type_automation_status['Content Type'].map(content_type_descriptions).fillna('Content Type')
+    df_content_type_automation_status['Automation Status'] = df_content_type_automation_status['Automation Status'].map(automated_decision_cleaned).fillna('Automation Status')
+
+
+    df_content_type_automation_status = df_content_type_automation_status.groupby(['Content Type', 'Automation Status'], as_index=False).sum()
 
     # Pivot the DataFrame for the chart
     pivot_df_chart = df_content_type_automation_status.pivot(index='Content Type', columns='Automation Status', values='N# Actions').fillna(0).reset_index()
