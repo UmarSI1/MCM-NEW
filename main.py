@@ -287,7 +287,7 @@ def main():
         date_final_str = st.selectbox("Choose a final date from the dropdown below:",datasets_final)
         
     with company_intial:
-        st.markdown("<h4 style=' text-decoration: underline;'>Select a Specific Company:</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style=' text-decoration: underline;'>Select a Company:</h4>", unsafe_allow_html=True)
         company_selected = st.selectbox("Choose a Company from the dropdown below:",list_of_companies_orig)
 
     with harm_intial:
