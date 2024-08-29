@@ -207,7 +207,7 @@ def main():
     st.set_page_config(layout="wide")
     st.write('<h1 style="text-align: center; text-decoration: underline;">Content moderation daily monitor</h1>', unsafe_allow_html=True)
     st.markdown(
-    '<p style="color:green; font-size:12px; text-align:center;">THIS IS A PROOF OF CONCEPT TOOL</p>',
+    '<p style="color:green; font-size:20px; text-align:center;">THIS IS A PROOF OF CONCEPT TOOL</p>',
     unsafe_allow_html=True
 )
     st.write('<h4 style="text-align: center;">This dashboard presents the daily count of moderation actions categorized by harm and platform provided by the DSA Transparency Database.</h4>', unsafe_allow_html=True)
