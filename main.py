@@ -86,72 +86,59 @@ def load_data_from_dataset(selected_dataset):
 
     return data, List_of_companies, List_of_harms, List_of_content_type, List_of_moderation_action, List_of_automation_status
 
+def load_data(selected_dataset):
+    """Load data from the blob storage."""
+    blob_name = f"{selected_dataset}.pkl"
+    print("BLOB NAME: ", blob_name)
+    blob_client = container_client.get_blob_client(blob_name)
+    
+    # Download the blob content to bytes and load it as a dictionary
+    download_stream = blob_client.download_blob()
+    blob_data = download_stream.readall()
+    
+    return pickle.load(io.BytesIO(blob_data))
+
+
+def process_automation_status(automation_status):
+    acc_totals_per_harm = 0
+    manual_totals_per_harm = 0
+    
+    for acc, automation_detection in automation_status.items():
+        if pd.notna(automation_detection):  # Check if the count is not NaN
+            if acc == 'Yes':
+                acc_totals_per_harm += automation_detection
+            else:
+                manual_totals_per_harm += automation_detection
+                
+    return acc_totals_per_harm, manual_totals_per_harm
+
+
+def plot_acc_totals_per_harm_company_harm_historical(data, company_selected, harm_selected):
+    """ Sum all numbers for acc per harm and return the results. """
+    acc_totals_per_harm = 0
+    manual_totals_per_harm = 0
+
+    if company_selected in data:
+        harm_dic = data[company_selected]
+        if harm_selected in harm_dic:
+            # Collect all automation_status dictionaries for parallel processing
+            automation_statuses = []
+            for content_type_data in harm_dic[harm_selected].values():
+                for moderation_action in content_type_data.values():
+                    for automation_status in moderation_action.values():
+                        automation_statuses.append(automation_status)
+            
+            # Process automation statuses in parallel
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                results = list(executor.map(process_automation_status, automation_statuses))
+                
+            # Aggregate results from all threads/processes
+            for acc_total, manual_total in results:
+                acc_totals_per_harm += acc_total
+                manual_totals_per_harm += manual_total
+
+    return acc_totals_per_harm, manual_totals_per_harm
 ################################################################################################################
-
-# def plot_acc_totals_per_harm_company_harm(selected_dataset):
-#     """ Sum all numbers for acc per harm and plot the results as a table. """
-    
-#     blob_name = selected_dataset + ".pkl"
-#     blob_client = container_client.get_blob_client(blob_name)
-    
-#     # Download the blob content to bytes
-#     download_stream = blob_client.download_blob()
-#     blob_data = download_stream.readall()
-    
-#     # Convert bytes to a file-like object
-#     data = pickle.load(io.BytesIO(blob_data))
-    
-#     #company = "TikTok"
-#     #harm = 'STATEMENT_CATEGORY_PORNOGRAPHY_OR_SEXUALIZED_CONTENT'
-    
-#     acc_totals_per_harm = 0
-#     manual_totals_per_harm = 0
-    
-#     for content_type_data in data[company][harm].values(): #for data in the specified company and harm row
-#         for moderation_action in content_type_data.values(): #for the moderation action in that data
-#             for automation_status in moderation_action.values(): #for the automation status in that data
-#                 for acc, automation_detection in automation_status.items(): #for the acc flah and automation detection status in the AS Row
-#                     if pd.notna(automation_detection):  # Check if the count is not NaN
-#                         if acc == 'Yes':
-#                             acc_totals_per_harm += automation_detection      
-#                         else:
-#                             manual_totals_per_harm += automation_detection      
-         
-#     return acc_totals_per_harm, manual_totals_per_harm
-
-
-# def plot_acc_totals_per_automation_status_company_harm(selected_dataset):
-#     """ Sum all numbers for acc per harm and plot the results as a table. """
-
-#     blob_name = selected_dataset + ".pkl"
-#     blob_client = container_client.get_blob_client(blob_name)
-    
-#     # Download the blob content to bytes
-#     download_stream = blob_client.download_blob()
-#     blob_data = download_stream.readall()
-    
-#     # Convert bytes to a file-like object
-#     data = pickle.load(io.BytesIO(blob_data))
-    
-#     company = "TikTok"
-#     harm = 'STATEMENT_CATEGORY_PORNOGRAPHY_OR_SEXUALIZED_CONTENT'
-    
-#     #acc_totals_per_harm = 0
-#     #manual_totals_per_harm = 0
-
-
-#     acc_totals_per_status = {}
-
-#     for content_type_data in data[company][harm].values():
-#                 for  moderation_action in content_type_data.values():
-#                     for status, automation_status in moderation_action.items():
-#                         for acc, automation_detection in automation_status.items():
-#                             if (status, acc) not in acc_totals_per_status:
-#                                 acc_totals_per_status[(status, acc)] = 0
-#                             if pd.notna(automation_detection):  # Check if the count is not NaN
-#                                 acc_totals_per_status[(status, acc)] += automation_detection
-
-#     return  acc_totals_per_status
 
 def main():
 
@@ -161,56 +148,13 @@ def main():
 
     datasets.reverse()
 
-    def plot_acc_totals_per_harm_company_harm_historical(selected_dataset):
-        """ Sum all numbers for acc per harm and plot the results as a table. """
-        
-        blob_name = selected_dataset + ".pkl"
-        blob_client = container_client.get_blob_client(blob_name)
-        
-        # Download the blob content to bytes
-        download_stream = blob_client.download_blob()
-        blob_data = download_stream.readall()
-        
-        # Convert bytes to a file-like object
-        data = pickle.load(io.BytesIO(blob_data))
-
-        List_of_companies = list(data.keys())
-        
-        
-        if company_selected not in List_of_companies:
-            acc_totals_per_harm = 0
-            manual_totals_per_harm = 0
-        else:
-            harm_dic = data[company_selected]
-            List_of_harms = list(harm_dic.keys())
-            if harm_selected not in List_of_harms:
-                acc_totals_per_harm = 0
-                manual_totals_per_harm = 0
-            else:
-                acc_totals_per_harm = 0
-                manual_totals_per_harm = 0
-            #company = "TikTok"
-            #harm = 'STATEMENT_CATEGORY_PORNOGRAPHY_OR_SEXUALIZED_CONTENT'
-                for content_type_data in data[company_selected][harm_selected].values(): #for data in the specified company and harm row
-                    for moderation_action in content_type_data.values(): #for the moderation action in that data
-                        for automation_status in moderation_action.values(): #for the automation status in that data
-                            for acc, automation_detection in automation_status.items(): #for the acc flah and automation detection status in the AS Row
-                                if pd.notna(automation_detection):  # Check if the count is not NaN
-                                    if acc == 'Yes':
-                                        acc_totals_per_harm += automation_detection      
-                                    else:
-                                        manual_totals_per_harm += automation_detection      
-                
-        return acc_totals_per_harm, manual_totals_per_harm
-
 
     st.set_page_config(layout="wide")
     st.write('<h1 style="text-align: center; text-decoration: underline;">Content moderation daily monitor</h1>', unsafe_allow_html=True)
-    st.markdown(
-    '<p style="color:green; font-size:20px; text-align:center;">THIS IS A PROOF OF CONCEPT TOOL</p>',
-    unsafe_allow_html=True
-)
+
     st.write('<h4 style="text-align: center;">This dashboard presents the daily count of moderation actions categorized by harm and platform provided by the DSA Transparency Database.</h4>', unsafe_allow_html=True)
+    #st.write('<h6 style="text-align: center;">If any issues arise please contact either Umar (umar.saad@ofcom.org.uk) Or Pedro Freire (pedro.freire@ofcom.org.uk)</h6>', unsafe_allow_html=True)
+
     st.markdown("---")
     # Main category 1
     with st.expander("Harm definition according to the DSA documentation", expanded=True):
@@ -252,10 +196,7 @@ def main():
         
     
     
-    # Create a selectbox for selecting a dataset
-        
-        # Input dates
-        # Create columns for the dropdowns
+#####################################################################################################################################
 
     st.write('<h2 style="text-align: center; text-decoration: underline;">Historical Analysis</h2>', unsafe_allow_html=True)
 
@@ -271,15 +212,27 @@ def main():
 
         # Format the initial date in 'YYYY-MM-DD'
         initial_date_str = initial_date.strftime("%Y-%m-%d")
+
+        # Filter the datasets to only include dates that are less than or equal to the initial date
+        filtered_datasetss = [date for date in datasets if date <= initial_date_str]
+
+        # Use the filtered list in the selectbox
+        date_initial_str = st.selectbox(
+            "Choose a date from the dropdown below:",
+            filtered_datasetss,
+            index=filtered_datasetss.index(initial_date_str) if initial_date_str in filtered_datasetss else 0
+)
         
-        date_initial_str = st.selectbox("Choose a date from the dropdown below:", datasets, index=datasets.index(initial_date_str))
-        #disable_others = selected_option == "General Data"
+        # date_initial_str = st.selectbox("Choose a date from the dropdown below:", datasets, index=datasets.index(initial_date_str))
+        # #disable_others = selected_option == "General Data"
 
 
     data = [datetime.strptime(d, "%Y-%m-%d") for d in datasets]
     date_initial = datetime.strptime(date_initial_str, "%Y-%m-%d")
     filtered_dates = [date for date in data if date > date_initial]
     datasets_final = [date.strftime('%Y-%m-%d') for date in filtered_dates]
+
+
 
 #list_of_companies_orig = ['TikTok', 'Pinterest', 'App Store', 'Snapchat', 'Booking.com', 'LinkedIn', 'X', 'Google Play', 'Google Maps', 'Facebook', 'Instagram', 'Amazon', 'YouTube', 'AliExpress', 'Google Shopping']
     list_of_companies_orig = ['TikTok', 'Pinterest', 'Snapchat', 'LinkedIn', 'X', 'Facebook', 'Instagram','YouTube','Reddit','Bumble']    
@@ -301,62 +254,68 @@ def main():
         
   
 
-    # Convert string dates to datetime objects
-    #date_initial = datetime.strptime(date_initial_str, "%Y-%m-%d")
     date_final = datetime.strptime(date_final_str, "%Y-%m-%d")
 
-    # # Check if the initial date is after the final date
-    # if date_initial > date_final:
-    #     date_initial, date_final = date_final, date_initial
+    # list_of_available_dates = [date_initial + timedelta(days=i) 
+    #                             for i in range((date_final - date_initial).days + 1)
+    #                             if (date_initial + timedelta(days=i)).strftime("%Y-%m-%d") in datasets]
+    list_of_available_dates = [
+    (date_initial + timedelta(days=i)).strftime("%Y-%m-%d")
+    for i in range((date_final - date_initial).days + 1)
+    if (date_initial + timedelta(days=i)).strftime("%Y-%m-%d") in datasets
+]
 
-    # Generate list of dates
-    list_of_available_dates = []
-    current_date = date_initial
+    start_time = time.time()
 
-    # while current_date <= date_final:
-    #     list_of_available_dates.append(current_date.strftime("%Y-%m-%d"))
-    #     current_date += timedelta(days=1)
+    #Load all data in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+        datasets_loaded = list(executor.map(load_data, list_of_available_dates))
 
-    while current_date <= date_final:
-        date_str = current_date.strftime("%Y-%m-%d")
-        #print("date str: ", date_str)
+    # Record the end time
+    end_time = time.time()
 
-        # Check if the date is in the dataset
-        if date_str in datasets:
-            list_of_available_dates.append(date_str)
+    # Calculate the duration
+    duration = end_time - start_time
+
+    print(f"Function load_data ran in {duration:.4f} seconds")
+
+    # with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
+    #     datasets_loaded = list(executor.map(load_data, list_of_available_dates))
+
+    # Process the loaded data
+    # Record the start time
+    start_time = time.time()
+
+    def process_data(data):
+        return plot_acc_totals_per_harm_company_harm_historical(data, company_selected, harm_selected)
+
+    # Using ThreadPoolExecutor to parallelize the function calls
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_data, datasets_loaded))
+        
+
+        # Record the end time
+    end_time = time.time()
+
+    # Calculate the duration
+    duration = end_time - start_time
+
+    print(f"Function (plot_acc_totals_per_harm_company_harm_historical) ran in {duration:.4f} seconds")
 
 
-        current_date += timedelta(days=1)
+        
 
-    # # If initial date was greater, reverse the list to maintain the order
-    # if datetime.strptime(date_initial_str, "%Y-%m-%d") > datetime.strptime(date_final_str, "%Y-%m-%d"):
-    #     list_of_available_dates.reverse()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
-        results = list(executor.map(plot_acc_totals_per_harm_company_harm_historical, list_of_available_dates))
-        # results = list(executor.map(plot_acc_totals_per_automation_status_company_harm, list_of_available_dates))
-
-    data_acc_historical, data_manual_historical = zip(*results)
-    #data_acc_historical = zip(*results)
-
-    # Create DataFrame for plotting
+    # Create DataFrame
     df = pd.DataFrame({
-        'Date': list_of_available_dates,
-        'Automated': data_acc_historical,
-        'Manual': data_manual_historical
-    })
-
-    df.set_index('Date', inplace=True)
-
-    # Display the data in columns
-    col1, col2 = st.columns(2)
-
-    # Create a DataFrame
-    df = pd.DataFrame({
+        # 'Date': [date.strftime('%Y-%m-%d') for date in list_of_available_dates],
         'Dates': list_of_available_dates,
-        'Automated': data_acc_historical,
-        'Manual': data_manual_historical
+        'Automated': [result[0] for result in results],
+        'Manual': [result[1] for result in results]
     })
+
+   # df.set_index('Dates', inplace=True)
+    col1, col2 = st.columns(2)
 
     # Melt the dataframe to a long format for Altair
     df_long = df.melt('Dates', var_name='Type', value_name='DAILY FLAGGED CONTENT')
@@ -371,8 +330,9 @@ def main():
         title='ACC Flag count vs User Flag count'
     )
 
-    # acc_total = df['Automated'].sum()
-    # user_total = df["Manual"].sum()
+
+
+    #PLOTTING THE GRAPHS BELOW and MAKING #2 PLOT
 
     with col1:
         # Display the chart in Streamlit
@@ -415,25 +375,6 @@ def main():
 
             # Display the chart
             st.altair_chart(chart, use_container_width=True)
-
-            # # Plotting the bar chart
-            # fig, ax = plt.subplots()
-            # bars = ax.bar(['Automated', 'Manual'], [acc_total, user_total], color=['red', 'green'])
-
-            # # Labeling the bars with the total values
-            # ax.bar_label(bars)
-
-            # # Set the title and labels
-            # ax.set_title('Comparison of Harm Counts')
-            # ax.set_ylabel('Total Count')
-
-            # # Display the plot in Streamlit
-            # st.pyplot(fig)
-
-            # st.bar_chart(df.set_index('Category'), use_container_width=True)
-
-            # #df.set_index('Dates', inplace=True)
-            # #st.line_chart(df['Manual'] + df['Automated'])
     st.markdown("---")
 
 
@@ -537,85 +478,88 @@ def main():
               with st.expander("Total ACC detections per moderation action", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(l)
+                  #st.pyplot(l)
+                  st.dataframe(l, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per automation decision status", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(n)
+                  #st.pyplot(n)
+                  st.dataframe(n, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per content type", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(b)
+                  #st.pyplot(b)
+                  st.dataframe(b, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per company", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(x)
+                  st.dataframe(x, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per harm", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(y)
+                  st.dataframe(y, use_container_width=True)
 
         with col2:
             with st.expander("Total count for manual vs automated detection", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(fig16)
+                st.dataframe(fig16, use_container_width=True)
 
         with col1:
             with st.expander("Total number of Moderation actions per harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(figtest)
+                st.dataframe(figtest, use_container_width=True)
 
 
         with col2:
             with st.expander("Total number of Moderation Actions per Company", expanded=False):
               #  change_label_style("Total number of Moderation Actions per Company", font_size='30px')
-                st.pyplot(fig0)
+                st.dataframe(fig0, use_container_width=True)
             
         with col1:
             with st.expander("Total number of Moderation Actions per Company Normalized", expanded=False):
               #  change_label_style("Total number of Moderation Actions per Company", font_size='30px')
-                st.pyplot(fig0two)
+                st.dataframe(fig0two, use_container_width=True)
                    
 
         with col2:
             with st.expander("Total number of Moderation Actions per Type of Content", expanded=False):
                # change_label_style("Total number of Moderation Actions per Type of Content", font_size='30px')
                 #st.image(fig_to_png(fig3), use_column_width=True, width = 500)
-                st.pyplot(fig1)
+                st.dataframe(fig1, use_container_width=True)
 
         with col1:
             with st.expander("Total number of Moderation Actions per Type of Automation Status", expanded=False):
                # st.image(fig_to_png(fig4), use_column_width=True, width = 500)
               # change_label_style("Total number of Moderation Actions per Type of Automation Status", font_size='30px')
-               st.pyplot(fig3)
+               st.dataframe(fig3, use_container_width=True)
 
         with col2:
             with st.expander("Total number of Moderation Actions per Type of Moderation Decision", expanded=False):
                # change_label_style("Total number of Moderation Actions per Type of Moderation Decision", font_size='30px')
                 #st.image(fig_to_png(fig5), use_column_width=True, width = 500)
-                st.pyplot(fig2)
+                st.dataframe(fig2, use_container_width=True)
 
         with col1:
             with st.expander("Number of reported Harms per Company", expanded=False):
               #  change_label_style("Number of reported Harms per Company", font_size='30px')
               #  st.image(fig_to_png(fig6), use_column_width=True, width = 500)
-                st.pyplot(fig4)
+                st.dataframe(fig4, use_container_width=True)
 
         with col2:
             with st.expander("Number of reported content type per Company", expanded=False):
               #  change_label_style("Number of reported content type per Company", font_size='30px')
                # st.image(fig_to_png(fig8), use_column_width=True, width = 1100)
-                st.pyplot(fig5)
+                st.dataframe(fig5, use_container_width=True)
 
 
 
@@ -623,37 +567,37 @@ def main():
             with st.expander("Normalized counts of each automation status per company", expanded=False):
               #  st.image(fig_to_png(fig9), use_column_width=True, width = 1100)
                # change_label_style("Normalized counts of each automation status per company", font_size='30px')
-                st.pyplot(fig7)
+                st.dataframe(fig7, use_container_width=True)
 
         with col2:
             with st.expander("Number of reported content type per Harm", expanded=False):
               #  change_label_style("Number of reported content type per Harm", font_size='30px')
-                st.pyplot(fig8)
+                st.dataframe(fig8, use_container_width=True)
 
 
         with col1:
             with st.expander("Number of reported content type per Harm Normalized", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per content type", font_size='30px')
-                st.pyplot(fig9)
+                st.dataframe(fig9, use_container_width=True)
                 
         with col2:
             with st.expander("Count for each harm per automation status", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Count for each harm per automation status", font_size='30px')
-                st.pyplot(fig10)
+                st.dataframe(fig10, use_container_width=True)
      
         with col1:
             with st.expander("Count for each harm per automation status normalized", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per automation status normalized", font_size='30px')
-                st.pyplot(fig10two)
+                st.dataframe(fig10two, use_container_width=True)
 
         with col2:
             with st.expander("Count of each Harm per Moderation decision", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Count of each Harm per Moderation decision", font_size='30px')
-                st.pyplot(fig12)
+                st.dataframe(fig12, use_container_width=True)
 
         #with col2:
            # with st.expander("Count of each content type per Moderation decision", expanded=False):
@@ -665,18 +609,18 @@ def main():
             with st.expander("Count for each content type per automation status", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
               #  change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11)
+                st.dataframe(fig11, use_container_width=True)
 
         with col2:
             with st.expander("Count for each content type per automation status Normalized", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each content type per automation status Normalized", font_size='30px')
-                st.pyplot(fig11two)
+                st.dataframe(fig11two, use_container_width=True)
         with col1:
             with st.expander("Number of reported moderation decision per company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Number of reported moderation decision per company", font_size='30px')
-                st.pyplot(fig15)
+                st.dataframe(fig15, use_container_width=True)
 
 
     elif selected_company and selected_harm:
@@ -735,133 +679,134 @@ def main():
               with st.expander("Total ACC detections per moderation action", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(l)
+                  #st.pyplot(l)
+                  st.dataframe(l, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per automation decision status", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(n)
+                  #st.pyplot(n)
+                  st.dataframe(n, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per content type", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(b)
+                  #st.pyplot(b)
+                  st.dataframe(b, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per company", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(x)
+                 # st.pyplot(x)
+                  st.dataframe(x, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per harm", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(y)
+                 # st.pyplot(y)
+                  st.dataframe(y, use_container_width=True)
 
         with col2:
             with st.expander("Total count for manual vs automated detection", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(fig16)
+              #  st.pyplot(fig16)
+                st.dataframe(fig16, use_container_width=True)
 
         with col1:
             with st.expander("Total number of Moderation actions for selected harm and company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
              #   change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(figtest)
-
-
-       # with col1:
-           # with st.expander("Total number of Moderation Actions  for selected harm and company", expanded=False):
-              #  change_label_style("Total number of Moderation Actions per Company", font_size='30px')
-               # st.pyplot(fig0)
+              #  st.pyplot(figtest)
+                st.dataframe(figtest, use_container_width=True)
 
         with col2:
             with st.expander("Total number of Moderation Actions normalized  for selected harm and company", expanded=False):
               #  change_label_style("Total number of Moderation Actions per Company", font_size='30px')
-                st.pyplot(fig0two)
+                #st.pyplot(fig0two)
+                st.dataframe(fig0two, use_container_width=True)
                    
 
         with col1:
             with st.expander("Total number of Moderation Actions per Type of Content for selected harm and company", expanded=False):
               #  change_label_style("Total number of Moderation Actions per Type of Content", font_size='30px')
                 #st.image(fig_to_png(fig3), use_column_width=True, width = 500)
-                st.pyplot(fig1)
+               #st.pyplot(fig1)
+                st.dataframe(fig1, use_container_width=True)
 
         with col2:
             with st.expander("Total number of Moderation Actions per Type of moderation action for selected harm and company", expanded=False):
                # st.image(fig_to_png(fig4), use_column_width=True, width = 500)
              #  change_label_style("Total number of Moderation Actions per Type of Automation Status", font_size='30px')
-               st.pyplot(fig2)
+              # st.pyplot(fig2)
+               st.dataframe(fig2, use_container_width=True)
 
         with col1:
             with st.expander("Total number of Moderation Actions per Type of Moderation Decision for selected harm and company", expanded=False):
               #  change_label_style("Total number of Moderation Actions per Type of Moderation Decision", font_size='30px')
                 #st.image(fig_to_png(fig5), use_column_width=True, width = 500)
-                st.pyplot(fig3)
+               # st.pyplot(fig3)
+                st.dataframe(fig3, use_container_width=True)
 
         with col2:
             with st.expander("Number of reported Harms for selected harm and company", expanded=False):
              #   change_label_style("Number of reported Harms per Company", font_size='30px')
-                st.pyplot(fig4)
+                #st.pyplot(fig4)
+                st.dataframe(fig4, use_container_width=True)
 
         with col1:
             with st.expander("Number of reported content type  for selected harm and company", expanded=False):
                # change_label_style("Number of reported content type per Company", font_size='30px')
                # st.image(fig_to_png(fig8), use_column_width=True, width = 1100)
-                st.pyplot(fig5)
+               # st.pyplot(fig5)
+                st.dataframe(fig5, use_container_width=True)
 
         with col2:
             with st.expander("Number of Automation Status type for selected harm and company", expanded=False):
              #   change_label_style("Number of Automation Status type per Company", font_size='30px')
                 #st.image(fig_to_png(fig10), use_column_width=True, width = 1100)
-                st.pyplot(fig6)
+               # st.pyplot(fig6)
+                st.dataframe(fig6, use_container_width=True)
 
 
         with col1:
             with st.expander("Normalized counts of each automation status for selected harm and company", expanded=False):
               #  st.image(fig_to_png(fig9), use_column_width=True, width = 1100)
               #  change_label_style("Normalized counts of each automation status per company", font_size='30px')
-                st.pyplot(fig7)
+               # st.pyplot(fig7)
+                st.dataframe(fig7, use_container_width=True)
 
         with col2:
             with st.expander("Number of reported content type normalized for selected harm and company", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
              #   change_label_style("Count for each harm per content type", font_size='30px')
-                st.pyplot(fig9)
-
-        # with col2:
-        #     with st.expander("Count for each harm per content type normalized for selected harm and company", expanded=False):
-        #        # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
-        #      #   change_label_style("Count for each harm per content type", font_size='30px')
-        #         st.pyplot(fig9two)
-                
-       # with col1:
-           # with st.expander("Count for each harm per automation status for selected harm and company", expanded=False):
-                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
-              ##  change_label_style("Count for each harm per automation status", font_size='30px')
-              #  st.pyplot(fig10)
+                #st.pyplot(fig9)
+                st.dataframe(fig9, use_container_width=True)
         
         with col1:
             with st.expander("Count for each harm per automation status normalized for selected harm and company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
               ##  change_label_style("Count for each harm per automation status", font_size='30px')
-                st.pyplot(fig10two)
+               # st.pyplot(fig10two)
+                st.dataframe(fig10two, use_container_width=True)
 
         with col2:
             with st.expander("Count for each content type per automation status for selected harm and company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
               #  change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11)
+             #   st.pyplot(fig11)
+                st.dataframe(fig11, use_container_width=True)
 
         with col1:
             with st.expander("Count for each content type per automation status normalized for selected harm and company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
               #  change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11two)
+              #  st.pyplot(fig11two)
+                st.dataframe(fig11two, use_container_width=True)
         # with col1:
         #     with st.expander("Count of each Harm per Moderation decision", expanded=False):
         #         # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
@@ -876,12 +821,14 @@ def main():
             with st.expander("Count of moderation decision per automation status for selected harm and company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count of moderation decision per automation status", font_size='30px')
-                st.pyplot(fig14)
+              #  st.pyplot(fig14)
+                st.dataframe(fig14, use_container_width=True)
         with col1:
             with st.expander("Number of reported moderation decision for selected harm and company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Number of reported moderation decision per company", font_size='30px')
-                st.pyplot(fig15)
+             #   st.pyplot(fig15)
+                st.dataframe(fig15, use_container_width=True)
 
 
 
@@ -945,37 +892,43 @@ def main():
               with st.expander("Total ACC detections per moderation action", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(l)
+                 #st.pyplot(l)
+                  st.dataframe(l, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per automation decision status", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(n)
+                 # st.pyplot(n)
+                  st.dataframe(n, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per content type", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(b)
+                  #st.pyplot(b)
+                  st.dataframe(b, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per company", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(x)
+                #  st.pyplot(x)
+                  st.dataframe(x, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per harm", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(y)
+                #  st.pyplot(y)
+                  st.dataframe(y, use_container_width=True)
 
         with col2:
             with st.expander("Total count for manual vs automated detection", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(fig16)
+              #  st.pyplot(fig16)
+                st.dataframe(fig16, use_container_width=True)
 
 
 
@@ -984,104 +937,121 @@ def main():
             with st.expander("Total number of Moderation actions per harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(figtest)
+              #  st.pyplot(figtest)
+                st.dataframe(figtest, use_container_width=True)
 
 
         with col2:
             with st.expander("Total number of Moderation Actions per Type of Automation Status", expanded=False):
                # st.image(fig_to_png(fig4), use_column_width=True, width = 500)
               # change_label_style("Total number of Moderation Actions per Type of Automation Status", font_size='30px')
-               st.pyplot(fig3)
+             #  st.pyplot(fig3)
+               st.dataframe(fig3, use_container_width=True)
 
 
         with col1:
             with st.expander("Total number of Moderation Actions per Company", expanded=False):
                # change_label_style("Total number of Moderation Actions per Company", font_size='30px')
-                st.pyplot(fig0)
+               # st.pyplot(fig0)
+                st.dataframe(fig0, use_container_width=True)
 
         with col2:
             with st.expander("Total number of Moderation Actions per Company normalized", expanded=False):
                # change_label_style("Total number of Moderation Actions per Company", font_size='30px')
-                st.pyplot(fig0two)
+               # st.pyplot(fig0two)
+                st.dataframe(fig0two, use_container_width=True)
                 
 
         with col1:
             with st.expander("Total number of Moderation Actions per Type of Moderation Decision", expanded=False):
               #  change_label_style("Total number of Moderation Actions per Type of Moderation Decision", font_size='30px')
                 #st.image(fig_to_png(fig5), use_column_width=True, width = 500)
-                st.pyplot(fig2)
+               # st.pyplot(fig2)
+                st.dataframe(fig2, use_container_width=True)
 
         with col2:
             with st.expander("Number of reported Harms per Company", expanded=False):
              #   change_label_style("Number of reported Harms per Company", font_size='30px')
-                st.pyplot(fig4)
+                #st.pyplot(fig4)
+                st.dataframe(fig4, use_container_width=True)
 
         with col1:
             with st.expander("Number of reported content type  per Company", expanded=False):
              #   change_label_style("Number of reported content type per Company", font_size='30px')
                # st.image(fig_to_png(fig8), use_column_width=True, width = 1100)
-                st.pyplot(fig5)
+               # st.pyplot(fig5)
+                st.dataframe(fig5, use_container_width=True)
 
         with col2:
             with st.expander("Number of Automation Status type per Company", expanded=False):
              #   change_label_style("Number of Automation Status type per Company", font_size='30px')
                 #st.image(fig_to_png(fig10), use_column_width=True, width = 1100)
-                st.pyplot(fig6)
+               # st.pyplot(fig6)
+                st.dataframe(fig6, use_container_width=True)
 
 
         with col1:
             with st.expander("Normalized counts of each automation status per company", expanded=False):
               #  st.image(fig_to_png(fig9), use_column_width=True, width = 1100)
               #  change_label_style("Normalized counts of each automation status per company", font_size='30px')
-                st.pyplot(fig7)
+               # st.pyplot(fig7)
+                st.dataframe(fig7, use_container_width=True)
 
 
         with col2:
             with st.expander("Count for each harm per content type", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
              #   change_label_style("Count for each harm per content type", font_size='30px')
-                st.pyplot(fig9)
+              #  st.pyplot(fig9)
+                st.dataframe(fig9, use_container_width=True)
 
         with col1:
             with st.expander("Count for each harm per content type Normalized", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
              #   change_label_style("Count for each harm per content type", font_size='30px')
-                st.pyplot(fig9two)
+               # st.pyplot(fig9two)
+                st.dataframe(fig9two, use_container_width=True)
                 
         with col2:
             with st.expander("Count for each harm per automation status", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per automation status", font_size='30px')
-                st.pyplot(fig10)
+              #  st.pyplot(fig10)
+                st.dataframe(fig10, use_container_width=True)
 
         with col1:
             with st.expander("Count for each harm per automation status normalized", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per automation status", font_size='30px')
-                st.pyplot(fig10two)
+            #    st.pyplot(fig10two)
+                st.dataframe(fig10two, use_container_width=True)
 
         with col2:
             with st.expander("Count for each content type per automation status", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
              #   change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11)
+              #  st.pyplot(fig11)
+                st.dataframe(fig11, use_container_width=True)
 
         with col1:
             with st.expander("Count for each content type per automation status Normalized", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
              #   change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11two)
+               # st.pyplot(fig11two)
+                st.dataframe(fig11two, use_container_width=True)
 
         with col2:
             with st.expander("Count of moderation decision per automation status", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count of moderation decision per automation status", font_size='30px')
-                st.pyplot(fig14)
+              #  st.pyplot(fig14)
+                st.dataframe(fig14, use_container_width=True)
         with col1:
             with st.expander("Number of reported moderation decision per company", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Number of reported moderation decision per company", font_size='30px')
-                st.pyplot(fig15)
+               # st.pyplot(fig15)
+                st.dataframe(fig15, use_container_width=True)
 
 
 
@@ -1141,43 +1111,51 @@ def main():
               with st.expander("Total ACC detections per moderation action", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(l)
+                 # st.pyplot(l)
+                  #st.pyplot(n)
+                  st.dataframe(l, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per automation decision status", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(n)
+                  #st.pyplot(n)
+                  st.dataframe(n, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per content type", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(b)
+                 # st.pyplot(b)
+                  st.dataframe(b, use_container_width=True)
 
         with col2:
               with st.expander("Total ACC detections per company", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(x)
+                 # st.pyplot(x)
+                  st.dataframe(x, use_container_width=True)
 
         with col1:
               with st.expander("Total ACC detections per harm", expanded=False):
                   # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                   #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                  st.pyplot(y)
+                 # st.pyplot(y)
+                  st.dataframe(y, use_container_width=True)
 
         with col2:
             with st.expander("Total count for manual vs automated detection", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(fig16)
+                #st.pyplot(fig16)
+                st.dataframe(fig16, use_container_width=True)
 
         with col1:
             with st.expander("Total number of Moderation actions per harm for harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                 #change_label_style("Total number of Moderation actions per harm", font_size='30px')
-                st.pyplot(figtest)
+                #st.pyplot(figtest)
+                st.dataframe(figtest, use_container_width=True)
 
                    
 
@@ -1185,73 +1163,85 @@ def main():
             with st.expander("Total number of Moderation Actions per Type of Content for harm", expanded=False):
                # change_label_style("Total number of Moderation Actions per Type of Content", font_size='30px')
                 #st.image(fig_to_png(fig3), use_column_width=True, width = 500)
-                st.pyplot(fig1)
+              #  st.pyplot(fig1)
+                st.dataframe(fig1, use_container_width=True)
 
         with col1:
             with st.expander("Total number of Moderation Actions per Type of Automation Status for harm", expanded=False):
                # st.image(fig_to_png(fig4), use_column_width=True, width = 500)
               # change_label_style("Total number of Moderation Actions per Type of Automation Status", font_size='30px')
-               st.pyplot(fig2)
+            #   st.pyplot(fig2)
+               st.dataframe(fig2, use_container_width=True)
 
         with col2:
             with st.expander("Total number of Automation status for harm", expanded=False):
              #   change_label_style("Total number of Moderation Actions per Type of Moderation Decision", font_size='30px')
                 #st.image(fig_to_png(fig5), use_column_width=True, width = 500)
-                st.pyplot(fig3)
+              #  st.pyplot(fig3)
+                st.dataframe(fig3, use_container_width=True)
 
         with col1:
             with st.expander("Number of reported Harms per Company for harm", expanded=False):
               #  change_label_style("Number of reported Harms per Company", font_size='30px')
-                st.pyplot(fig4)
+            #    st.pyplot(fig4)
+                st.dataframe(fig4, use_container_width=True)
 
         with col2:
             with st.expander("Number of Automation Status type per Company for harm", expanded=False):
                # change_label_style("Number of Automation Status type per Company", font_size='30px')
                 #st.image(fig_to_png(fig10), use_column_width=True, width = 1100)
-                st.pyplot(fig6)
+           #     st.pyplot(fig6)
+                st.dataframe(fig6, use_container_width=True)
 
 
         with col1:
             with st.expander("Normalized counts of each automation status per company for harm", expanded=False):
               #  st.image(fig_to_png(fig9), use_column_width=True, width = 1100)
               #  change_label_style("Normalized counts of each automation status per company", font_size='30px')
-                st.pyplot(fig7)
+                #st.pyplot(fig7)
+                st.dataframe(fig7, use_container_width=True)
 
         with col2:
             with st.expander("Number of reported content type per Harm Normalized for harm", expanded=False):
                # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per content type", font_size='30px')
-                st.pyplot(fig9)
+               # st.pyplot(fig9)
+                st.dataframe(fig9, use_container_width=True)
                 
         with col1:
             with st.expander("Count for each harm per automation status for harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per automation status", font_size='30px')
-                st.pyplot(fig10)
+               # st.pyplot(fig10)
+                st.dataframe(fig10, use_container_width=True)
 
         with col2:
             with st.expander("Count for each harm per automation status normalized for harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each harm per automation status", font_size='30px')
-                st.pyplot(fig10two)
+               # st.pyplot(fig10two)
+                st.dataframe(fig10two, use_container_width=True)
 
         with col1:
             with st.expander("Count for each content type per automation status for harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11)
+                #st.pyplot(fig11)
+                st.dataframe(fig11, use_container_width=True)
 
         with col2:
             with st.expander("Count for each content type per automation status normalized for harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
                # change_label_style("Count for each content type per automation status", font_size='30px')
-                st.pyplot(fig11two)
+                st.dataframe(fig11two, use_container_width=True)
 
         with col1:
             with st.expander("Count of moderation decision per automation status for harm", expanded=False):
                 # st.image(fig_to_png(fig11), use_column_width=True, width = 1100)
-              #  change_label_style("Count of moderation decision per automation status", font_size='30px')
-                st.pyplot(fig14)
+              #  change_label_styl
+              # e("Count of moderation decision per automation status", font_size='30px')
+               # st.pyplot(fig14)
+                st.dataframe(fig14, use_container_width=True)
             
 
     else:
