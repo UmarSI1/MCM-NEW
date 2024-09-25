@@ -60,8 +60,8 @@ list_of_harms = ['STATEMENT_CATEGORY_ILLEGAL_OR_HARMFUL_SPEECH', 'STATEMENT_CATE
 ##############################################################################################################  --- Connecting to azure / getting datasets --- ###############################################################################################################
 
 # # Azure Blob Storage configuration
- connection_string = 'DefaultEndpointsProtocol=https;AccountName=asatrustandsafetycv;AccountKey=HrJteCB33VFGftZQQFcp0AL1oiv6XOYtUD7FHosKK67v6+KLTmYLrQSrEL0Np+ODbZrCUNvvZ2Zd+AStGD1jPw==;EndpointSuffix=core.windows.net'
- container_name = 'dsa'
+connection_string = 'DefaultEndpointsProtocol=https;AccountName=asatrustandsafetycv;AccountKey=HrJteCB33VFGftZQQFcp0AL1oiv6XOYtUD7FHosKK67v6+KLTmYLrQSrEL0Np+ODbZrCUNvvZ2Zd+AStGD1jPw==;EndpointSuffix=core.windows.net'
+container_name = 'dsa'
 
 # connecting to azure and getting all blobs in container
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
