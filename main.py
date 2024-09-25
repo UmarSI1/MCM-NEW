@@ -501,6 +501,10 @@ def main():
         # Display the chart in Streamlit
         st.altair_chart(chart, use_container_width=True)
     with col2:
+            st.write(
+              f"<span style='color:red; font-weight:bold;'>Automated</span> (ACC): {acc_total} ┃ "
+              f"<span style='color:green; font-weight:bold;'>Manual</span> (User reported): {user_total}",
+              unsafe_allow_html=True)
             # Display the chart
             st.altair_chart(chart_two, use_container_width=True)
     st.markdown("---")
