@@ -24,15 +24,15 @@ from general_temp_for_harm_and_comp import *
 
 #############################################
 #Loading secrets
-config_file_path = r'C:\Users\Umar.Saad\Downloads\MCM-NEW-master\MCM-NEW-master\secrets\config.json'
+# config_file_path = r'C:\Users\Umar.Saad\Downloads\MCM-NEW-master\MCM-NEW-master\secrets\config.json'
 
-# Function to load configuration from the JSON file
-def load_config(file_path):
-    with open(file_path, 'r') as file:
-        return json.load(file)
+# # Function to load configuration from the JSON file
+# def load_config(file_path):
+#     with open(file_path, 'r') as file:
+#         return json.load(file)
 
-# Load configuration
-config = load_config(config_file_path)
+# # Load configuration
+# config = load_config(config_file_path)
 
 # Access configuration values
 connection_string = config.get('connection_string')
@@ -60,8 +60,8 @@ list_of_harms = ['STATEMENT_CATEGORY_ILLEGAL_OR_HARMFUL_SPEECH', 'STATEMENT_CATE
 ##############################################################################################################  --- Connecting to azure / getting datasets --- ###############################################################################################################
 
 # # Azure Blob Storage configuration
-# connection_string = 'DefaultEndpointsProtocol=https;AccountName=asatrustandsafetycv;AccountKey=HrJteCB33VFGftZQQFcp0AL1oiv6XOYtUD7FHosKK67v6+KLTmYLrQSrEL0Np+ODbZrCUNvvZ2Zd+AStGD1jPw==;EndpointSuffix=core.windows.net'
-# container_name = 'dsa'
+ connection_string = 'DefaultEndpointsProtocol=https;AccountName=asatrustandsafetycv;AccountKey=HrJteCB33VFGftZQQFcp0AL1oiv6XOYtUD7FHosKK67v6+KLTmYLrQSrEL0Np+ODbZrCUNvvZ2Zd+AStGD1jPw==;EndpointSuffix=core.windows.net'
+ container_name = 'dsa'
 
 # connecting to azure and getting all blobs in container
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
