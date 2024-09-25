@@ -233,9 +233,13 @@ def main():
 
 
     data = [datetime.strptime(d, "%Y-%m-%d") for d in datasets]
+    
     date_initial = datetime.strptime(date_initial_str, "%Y-%m-%d")
+    date_final = datetime.strptime(date_final_str, "%Y-%m-%d")
+    
     filtered_dates = [date for date in data if date > date_initial]
-    datasets_final = [date.strftime('%Y-%m-%d') for date in filtered_dates]
+    
+    datasets_final = [date for date in filtered_dates]
 
 
 
@@ -259,7 +263,7 @@ def main():
         
   
 
-    date_final = datetime.strptime(date_final_str, "%Y-%m-%d")
+    
 
     # list_of_available_dates = [date_initial + timedelta(days=i) 
     #                             for i in range((date_final - date_initial).days + 1)
