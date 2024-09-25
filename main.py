@@ -427,11 +427,6 @@ def main():
     
     df_xx = pd.DataFrame(data_a)
 
-    st.write(
-        f"<span style='color:red; font-weight:bold;'>Automated</span> (ACC): {acc_total} ┃ "
-        f"<span style='color:green; font-weight:bold;'>Manual</span> (User reported): {user_total}",
-        unsafe_allow_html=True)
-
     color_scale = alt.Scale(domain=['Automated', 'Manual'], range=['red', 'green'])
 
     # Create an Altair bar chart
@@ -544,8 +539,8 @@ def main():
     # Columns, Titles and dataset selectbox
     st.write('<h2 style="text-align: center; text-decoration: underline;">Daily Live Analysis</h2>', unsafe_allow_html=True)
     st.markdown("<h3 style='text-decoration: underline;'>Select a Specific Date</h3>", unsafe_allow_html=True)
-    general_data_col, company_col, harm_col = st.columns(3)
     selected_dataset = st.selectbox("Choose a Date:", datasets)
+    general_data_col, company_col, harm_col = st.columns(3)
     ####################################################
 
 
@@ -964,7 +959,8 @@ def main():
             
 
     else:
-        st.write("No dataset selected.")
+        #pass
+      # st.write("No dataset selected.")
     ########################################################################################################
 
 ########################################################################################################
