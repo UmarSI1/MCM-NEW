@@ -35,8 +35,8 @@ from general_temp_for_harm_and_comp import *
 # config = load_config(config_file_path)
 
 # Access configuration values
-connection_string = config.get('connection_string')
-container_name = config.get('container_name')
+# connection_string = config.get('connection_string')
+# container_name = config.get('container_name')
 
 # Example usage
 # print(f"API Key: {connection_string}")
